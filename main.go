@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"log"
 	"os"
@@ -38,11 +39,19 @@ func main() {
 	//create new image with dim. 7.5 x 10in
 	//imageParts = append(imageParts, image.NewRGBA(image.Rect(0, 0, 2250, 3000)))
 
+	edgeLineSize := 2
+
 	for i := range imageParts {
 		//loop though image and copy everything into first section
-		for y := 0; y < imageParts[i].Rect.Max.Y; y++ {
-			for x := 0; x < imageParts[i].Rect.Max.X; x++ {
+		for y := imageParts[i].Rect.Min.Y; y < imageParts[i].Rect.Max.Y; y++ {
+			for x := imageParts[i].Rect.Min.X; x < imageParts[i].Rect.Max.X; x++ {
 				imageParts[i].Set(x, y, imgData.At(x, y))
+
+				//if on a boarder, set black outline
+				if x <= imageParts[i].Rect.Min.X+edgeLineSize || x >= imageParts[i].Rect.Max.X-edgeLineSize || y <= imageParts[i].Rect.Min.Y+edgeLineSize || y >= imageParts[i].Rect.Max.Y-edgeLineSize {
+					imageParts[i].Set(x, y, color.Black)
+
+				}
 			}
 		}
 
