@@ -1,16 +1,36 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 )
 
 func main() {
-	openedImage, err := os.Open("alien landscape-print-12x12.png")
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("Source image path: ")
+	sourceImagePath, err := reader.ReadString('\n')
+	if err != nil {
+		panic(err)
+	}
+	sourceImagePath, err = filepath.Abs(strings.Trim(sourceImagePath, "\r\n"))
+
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("%q\n", sourceImagePath)
+
+	sourceFileName := filepath.Base(sourceImagePath)
+	fmt.Println(sourceFileName)
+
+	openedImage, err := os.Open(sourceImagePath)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,7 +75,8 @@ func main() {
 			}
 		}
 
-		partFileName := fmt.Sprintf("image-part-%d.png", i)
+		partFileName := fmt.Sprintf("%s-part-%d.png", sourceFileName, i)
+		//partFileName := fmt.Sprintf("image-part-%d.png", i)
 		//partFileName := fmt.Sprintf("image-part-%d-%dx%d.png", i, imageParts[i].Bounds().Max.X, imageParts[i].Bounds().Max.Y)
 		outF, err := os.Create(partFileName)
 		if err != nil {
@@ -67,20 +88,22 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+
+		//exec.Command("C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe", "C:\\Users\\i31586\\Documents\\go\\split-image-for-printing\\image-part-0.png")
+
 	}
 
 }
 
-//func CreateImageFromRectangle()
-
 func CreateImageRectangles(imgBounds image.Rectangle) []image.Rectangle {
+	const maxPageX = 2250
+	const maxPageY = 3000
+
 	imageRectangles := make([]image.Rectangle, 0)
-	maxX := 2250
-	maxY := 3000
 
 	imgSize := imgBounds.Size()
 	//if image is within 7.5 x 10in
-	if imgSize.X < 2250 && imgSize.Y < 3000 {
+	if imgSize.X < maxPageX && imgSize.Y < maxPageY {
 		imageRectangles = append(imageRectangles, imgBounds)
 		return imageRectangles[:]
 	}
@@ -94,25 +117,28 @@ func CreateImageRectangles(imgBounds image.Rectangle) []image.Rectangle {
 	targetX := 0
 	targetY := 0
 	for extraY > 0 {
-		if extraY > maxY {
-			targetY = maxY
+		if extraY > maxPageY {
+			targetY = maxPageY
 		} else {
 			targetY = extraY
 		}
 
+		//fmt.Printf("base: %d - extra: %d - target: %d\n", baseX, extraX, targetX)
 		for extraX > 0 {
-			if extraX > maxX {
-				targetX = maxX
+			if extraX > maxPageX {
+				targetX = maxPageX
 			} else {
 				targetX = extraX
 			}
 
 			imageRectangles = append(imageRectangles, image.Rect(baseX, baseY, baseX+targetX, baseY+targetY))
 
-			baseX += targetX - baseX
+			baseX += targetX
 			extraX -= targetX
+			//fmt.Printf("base: %d - extra: %d - target: %d\n", baseX, extraX, targetX)
+			//fmt.Println(imageRectangles)
 		}
-		baseY += targetY - baseY
+		baseY += targetY
 		extraY -= targetY
 
 		//reset X variables
