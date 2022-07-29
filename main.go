@@ -10,6 +10,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	//"github.com/johnfercher/maroto/pkg/color"
+	"github.com/johnfercher/maroto/pkg/consts"
+	"github.com/johnfercher/maroto/pkg/pdf"
+	"github.com/johnfercher/maroto/pkg/props"
 )
 
 func main() {
@@ -89,10 +94,25 @@ func main() {
 			panic(err)
 		}
 
-		//exec.Command("C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe", "C:\\Users\\i31586\\Documents\\go\\split-image-for-printing\\image-part-0.png")
-
 	}
 
+	m := pdf.NewMaroto(consts.Portrait, consts.Letter)
+	m.SetPageMargins(20, 10, 20)
+
+	m.Row(250, func() {
+		m.Col(12, func() {
+			m.FileImage("image-part-0.png", props.Rect{
+				Center:  true,
+				Percent: 100,
+			})
+		})
+	})
+
+	err = m.OutputFileAndClose("testing.pdf")
+	if err != nil {
+		fmt.Println("⚠️  Could not save PDF:", err)
+		os.Exit(1)
+	}
 }
 
 func CreateImageRectangles(imgBounds image.Rectangle) []image.Rectangle {
