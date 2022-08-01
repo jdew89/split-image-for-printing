@@ -11,11 +11,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	//"github.com/johnfercher/maroto/pkg/color"
-	"github.com/johnfercher/maroto/pkg/consts"
-	"github.com/johnfercher/maroto/pkg/pdf"
-	"github.com/johnfercher/maroto/pkg/props"
+	"github.com/jung-kurt/gofpdf"
 )
+
+const DPI = 300
 
 func main() {
 	reader := bufio.NewReader(os.Stdin)
@@ -66,6 +65,9 @@ func main() {
 
 	edgeLineSize := 2
 
+	// Set up PDF object
+	pdf := gofpdf.New("P", "in", "Letter", "")
+
 	for i := range imageParts {
 		//loop though image and copy everything into first section
 		for y := imageParts[i].Rect.Min.Y; y < imageParts[i].Rect.Max.Y; y++ {
@@ -80,9 +82,10 @@ func main() {
 			}
 		}
 
+		// Output Image File
 		partFileName := fmt.Sprintf("%s-part-%d.png", sourceFileName, i)
 		//partFileName := fmt.Sprintf("image-part-%d.png", i)
-		//partFileName := fmt.Sprintf("image-part-%d-%dx%d.png", i, imageParts[i].Bounds().Max.X, imageParts[i].Bounds().Max.Y)
+
 		outF, err := os.Create(partFileName)
 		if err != nil {
 			panic(err)
@@ -94,27 +97,40 @@ func main() {
 			panic(err)
 		}
 
+		// Add image to pdf
+		AddImageToPdfPage(pdf, partFileName, imageParts[i].Bounds(), DPI)
 	}
 
-	m := pdf.NewMaroto(consts.Portrait, consts.Letter)
-	m.SetPageMargins(20, 10, 20)
-
-	m.Row(250, func() {
-		m.Col(12, func() {
-			m.FileImage("image-part-0.png", props.Rect{
-				Center:  true,
-				Percent: 100,
-			})
-		})
-	})
-
-	err = m.OutputFileAndClose("testing.pdf")
+	// Output pdf to a file
+	fileStr := "Output.pdf"
+	err = pdf.OutputFileAndClose(fileStr)
 	if err != nil {
-		fmt.Println("⚠️  Could not save PDF:", err)
-		os.Exit(1)
+		panic(err)
 	}
+
 }
 
+// Adds page to pdf. Pass reference to pdf file object
+func AddImageToPdfPage(pdf *gofpdf.Fpdf, pngFile string, bounds image.Rectangle, dpi int) {
+	// Set margins
+	mx := 0.5
+	my := 0.5
+
+	var opt gofpdf.ImageOptions
+	pdf.AddPage()
+	pdf.SetFont("Arial", "", 11)
+	pdf.SetX(0)
+	opt.ImageType = "png"
+	// Convert width and height to inches
+	width := float64(bounds.Dx()) / float64(dpi)
+	height := float64(bounds.Dy()) / float64(dpi)
+
+	pdf.ImageOptions(pngFile, mx, my, width, height, false, opt, 0, "")
+	opt.AllowNegativePosition = true
+}
+
+// Pass the bounds of the rectangle
+// Returns an array of rectangles by splitting the image into 8.5x11 pages
 func CreateImageRectangles(imgBounds image.Rectangle) []image.Rectangle {
 	const maxPageX = 2250
 	const maxPageY = 3000
