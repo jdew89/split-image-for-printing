@@ -11,9 +11,9 @@ Compile:
 go build .
 ```
 
-Run:
+Run without compile:
 ```
-split-image-for-printing
+go run .
 ```
 
 Enter source image path
