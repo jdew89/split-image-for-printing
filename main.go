@@ -1,15 +1,14 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/jung-kurt/gofpdf"
 )
@@ -17,32 +16,49 @@ import (
 const DPI = 300
 
 func main() {
-	reader := bufio.NewReader(os.Stdin)
+	// reader := bufio.NewReader(os.Stdin)
 
-	fmt.Print("Source image path: ")
-	sourceImagePath, err := reader.ReadString('\n')
+	// fmt.Print("Source image path: ")
+	// sourceImagePath, err := reader.ReadString('\n')
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// sourceImagePath, err = filepath.Abs(strings.Trim(sourceImagePath, "\r\n"))
+	// if err != nil {
+	// 	CheckErr(err)
+	// }
+	// fmt.Printf("%q\n", sourceImagePath)
+
+	inputFiles, err := ioutil.ReadDir("input")
 	if err != nil {
-		panic(err)
+		CheckErr(err)
 	}
-	sourceImagePath, err = filepath.Abs(strings.Trim(sourceImagePath, "\r\n"))
 
+	for _, file := range inputFiles {
+		// fmt.Println(file.Name())
+		ProcessImage("input/" + file.Name())
+	}
+}
+
+func CheckErr(err error) {
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
-	fmt.Printf("%q\n", sourceImagePath)
+}
 
+func ProcessImage(sourceImagePath string) {
 	sourceFileName := filepath.Base(sourceImagePath)
-	fmt.Println(sourceFileName)
+	fmt.Println("input: " + sourceFileName)
 
 	openedImage, err := os.Open(sourceImagePath)
 	if err != nil {
-		log.Fatal(err)
+		CheckErr(err)
 	}
 	defer openedImage.Close()
 
 	imgData, err := png.Decode(openedImage)
 	if err != nil {
-		log.Fatal(err)
+		CheckErr(err)
 	}
 
 	fmt.Println("Bounds: ", imgData.Bounds())
@@ -83,18 +99,21 @@ func main() {
 		}
 
 		// Output Image File
-		partFileName := fmt.Sprintf("%s-part-%d.png", sourceFileName, i)
+		partFileName := fmt.Sprintf("temp/%s-part-%d.png", sourceFileName, i)
 		//partFileName := fmt.Sprintf("image-part-%d.png", i)
-
+		err = os.MkdirAll("temp", os.ModePerm)
+		if err != nil {
+			CheckErr(err)
+		}
 		outF, err := os.Create(partFileName)
 		if err != nil {
-			panic(err)
+			CheckErr(err)
 		}
 		defer outF.Close()
 
 		err = png.Encode(outF, imageParts[i])
 		if err != nil {
-			panic(err)
+			CheckErr(err)
 		}
 
 		// Add image to pdf
@@ -103,15 +122,14 @@ func main() {
 
 	err = os.MkdirAll("output", os.ModePerm)
 	if err != nil {
-		panic(err)
+		CheckErr(err)
 	}
 	// Output pdf to a file
 	fileStr := fmt.Sprintf("output/%s.pdf", sourceFileName)
 	err = pdf.OutputFileAndClose(fileStr)
 	if err != nil {
-		panic(err)
+		CheckErr(err)
 	}
-
 }
 
 // Adds page to pdf. Pass reference to pdf file object

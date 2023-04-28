@@ -16,5 +16,4 @@ Run without compile:
 go run .
 ```
 
-Enter source image path
-It will create Output.pdf
+Put the input files into the `input/` folder and it will process each one.
