@@ -101,8 +101,12 @@ func main() {
 		AddImageToPdfPage(pdf, partFileName, imageParts[i].Bounds(), DPI)
 	}
 
+	err = os.MkdirAll("output", os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
 	// Output pdf to a file
-	fileStr := "Output.pdf"
+	fileStr := fmt.Sprintf("output/%s.pdf", sourceFileName)
 	err = pdf.OutputFileAndClose(fileStr)
 	if err != nil {
 		panic(err)
