@@ -1,43 +1,94 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/jung-kurt/gofpdf"
 )
 
 const DPI = 300
 
+type MyEvent struct {
+	Name string `json:"name"`
+}
+
+func handler(ctx context.Context, request events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
+	// Get the file contents of index.html
+	log.Println("req path: ", request.RawPath)
+	log.Println("Received body: ", request.Body)
+
+	file, err := os.Open("index.html")
+	if err != nil {
+		return events.LambdaFunctionURLResponse{}, err
+	}
+	defer file.Close()
+	content, err := ioutil.ReadAll(file)
+	if err != nil {
+		return events.LambdaFunctionURLResponse{}, err
+	}
+
+	// If the request is for the root resource, return the contents of index.html
+	if request.RawPath == "/" {
+		// Serve the file contents as the response
+		return events.LambdaFunctionURLResponse{
+			StatusCode: http.StatusOK,
+			Body:       string(content),
+			Headers: map[string]string{
+				"Content-Type": "text/html",
+			},
+		}, nil
+	}
+
+	// Process the image to pdf prints
+	if request.RawPath == "/upload" {
+
+		return events.LambdaFunctionURLResponse{
+			StatusCode: http.StatusOK,
+			Body:       request.Body,
+			Headers: map[string]string{
+				"Content-Type": "application/octet-stream",
+			},
+		}, nil
+
+	}
+
+	// Return index.html for any other path
+	return events.LambdaFunctionURLResponse{
+		StatusCode: http.StatusOK,
+		Body:       string(content),
+		Headers: map[string]string{
+			"Content-Type": "text/html",
+		},
+	}, nil
+}
+
 func main() {
-	// reader := bufio.NewReader(os.Stdin)
+	lambda.Start(handler)
+}
 
-	// fmt.Print("Source image path: ")
-	// sourceImagePath, err := reader.ReadString('\n')
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// sourceImagePath, err = filepath.Abs(strings.Trim(sourceImagePath, "\r\n"))
-	// if err != nil {
-	// 	CheckErr(err)
-	// }
-	// fmt.Printf("%q\n", sourceImagePath)
-
+func HandleRequest(ctx context.Context) (string, error) {
 	inputFiles, err := ioutil.ReadDir("input")
 	if err != nil {
-		CheckErr(err)
+		return "", err
 	}
 
 	for _, file := range inputFiles {
-		// fmt.Println(file.Name())
+		log.Println(file.Name())
 		ProcessImage("input/" + file.Name())
 	}
+
+	return "Image processing complete", nil
 }
 
 func CheckErr(err error) {
