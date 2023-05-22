@@ -154,8 +154,10 @@ func AddImageToPdfPage(pdf *gofpdf.Fpdf, pngFile string, bounds image.Rectangle,
 // Pass the bounds of the rectangle
 // Returns an array of rectangles by splitting the image into 8.5x11 pages
 func CreateImageRectangles(imgBounds image.Rectangle) []image.Rectangle {
-	const maxPageX = 2250
-	const maxPageY = 3000
+	// const maxPageX = 2250
+	// const maxPageY = 3000
+	maxPageX := int(7.5 * DPI)
+	maxPageY := int(10 * DPI)
 
 	imageRectangles := make([]image.Rectangle, 0)
 
