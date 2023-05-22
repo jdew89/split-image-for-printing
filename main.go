@@ -19,9 +19,6 @@ import (
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jung-kurt/gofpdf"
 )
 
@@ -61,28 +58,6 @@ func handler(ctx context.Context, request events.LambdaFunctionURLRequest) (even
 
 	// Process the image to pdf prints
 	if request.RawPath == "/upload" {
-		// Load the Shared AWS Configuration (~/.aws/config)
-		cfg, err := config.LoadDefaultConfig(context.TODO())
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		// Create an Amazon S3 service client
-		client := s3.NewFromConfig(cfg)
-		bucket := "ee.split-images-bucket"
-		key := "split-image.pdf"
-
-		_, err = client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key),
-		})
-
-		client.PutObject(context.TODO(), &s3.PutObjectInput{
-			Bucket: aws.String(bucket),
-			Key:    aws.String(key),
-			Body:   bytes.NewReader([]byte(request.Body)),
-		})
-
 		// log.Printf("b64: %v", request.IsBase64Encoded)
 		// Request comes in as base64 encoded string
 		reqFormBytes, err := b64.StdEncoding.DecodeString(request.Body)
