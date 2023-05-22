@@ -1,0 +1,12 @@
+version = 0.1
+[default]
+[default.deploy]
+[default.deploy.parameters]
+stack_name = "split-images-to-pdf"
+s3_bucket = "aws-sam-cli-managed-default-samclisourcebucket-w51gt7v0lbm"
+s3_prefix = "split-images-to-pdf"
+region = "us-east-2"
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = "FunctionName=\"split-images-to-pdf\" Stage=\"dev\""
+image_repositories = []
+profile = "ee"

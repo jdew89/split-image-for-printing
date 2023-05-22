@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Crunch Status Monitor
+
+Parameters:
+  FunctionName:
+    Type: String
+    Description: Name of the function
+    Default: split-images-to-pdf
+  Stage:
+    Type: String
+    Description: Which environment to deploy (local, dev, stg/test, prod, ...)
+    Default: dev
+
+Resources:
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: split-image-to-pdf-role
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaRole'
+        # - 'arn:aws:iam::aws:policy/AmazonSSMFullAccess'
+        # - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole'
+        - 'arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Tags:
+        - Key: ManagedBy
+          Value: SAM
+  
+
+  Imagesplitter:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: split-images-to-pdf
+      Description: 'split-images-to-pdf'
+      Role: !GetAtt ExecutionRole.Arn
+      Handler: main
+      Runtime: go1.x
+      CodeUri: ./dist/main.zip
+      Tags:
+        ManagedBy: SAM
+      Timeout: 60
+      MemorySize: 512
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            #Path: !Sub "/${Stage}/qafeedback"
+            Path: /{proxy+} # Send requests on any path to the lambda function
+            Method: ANY
+
+      
+
+
+
+# Outputs:
+#   GoCopyS3FromDevAPI:
+#     Description: 'API Gateway Endpoint URL for CopyS3FromDev'
+#     Value: !Sub "https://${GoCopyS3FromDevAPI}.execute-api.${AWS::Region}.amazonaws.com/copy-model"
+
+
+# Outputs:
+#   GoCopyS3FromDev:
+#     Description: "OCR bucket"
+#     Value: !Ref S3OcrBucket
+#   ImageUsed:
+#     Description: "Image used in lambda"
+#     Value: !Sub "${ECRUri}/${ImageTag}"
+#   FunctionName:
+#     Description: "Name of the function"
+#     Value: !Ref FunctionNamelog.Printf("Request: %v", request)
