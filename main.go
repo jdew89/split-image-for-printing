@@ -13,7 +13,7 @@ import (
 	"github.com/jung-kurt/gofpdf"
 )
 
-const DPI = 300
+const DPI float64 = 300
 
 func main() {
 	// reader := bufio.NewReader(os.Stdin)
