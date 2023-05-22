@@ -197,7 +197,7 @@ func ProcessImage(file []byte, dpi int) ([]byte, error) {
 	fmt.Println("Bounds: ", imgData.Bounds())
 	//fmt.Println(imgData.At(0, 0).RGBA())
 
-	imageRects := CreateImageRectangles(imgData.Bounds())
+	imageRects := CreateImageRectangles(imgData.Bounds(), dpi)
 
 	fmt.Println(imageRects)
 
@@ -298,9 +298,11 @@ func AddImageToPdfPage(pdf *gofpdf.Fpdf, pngFile string, bounds image.Rectangle,
 
 // Pass the bounds of the rectangle
 // Returns an array of rectangles by splitting the image into 8.5x11 pages
-func CreateImageRectangles(imgBounds image.Rectangle) []image.Rectangle {
-	const maxPageX = 2250
-	const maxPageY = 3000
+func CreateImageRectangles(imgBounds image.Rectangle, dpi int) []image.Rectangle {
+	// const maxPageX = 2250
+	// const maxPageY = 3000
+	maxPageX := int(7.5 * float64(dpi))
+	maxPageY := int(10 * dpi)
 
 	imageRectangles := make([]image.Rectangle, 0)
 
