@@ -1,39 +1,48 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	b64 "encoding/base64"
 	"fmt"
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"io/ioutil"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"os"
-	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/jung-kurt/gofpdf"
 )
-
-const DPI = 300
 
 type MyEvent struct {
 	Name string `json:"name"`
 }
 
 func handler(ctx context.Context, request events.LambdaFunctionURLRequest) (events.LambdaFunctionURLResponse, error) {
-	// Get the file contents of index.html
-	log.Println("req path: ", request.RawPath)
-	log.Println("Received body: ", request.Body)
+	log.SetFlags(log.Flags() &^ (log.Ldate | log.Ltime)) // remove date and time from logs
 
+	log.Println("req path: ", request.RawPath)
+	log.Println("req headers: ", request.Headers)
+	// log.Println("Received body: ", request.Body)
+
+	// Get the file contents of index.html
 	file, err := os.Open("index.html")
 	if err != nil {
 		return events.LambdaFunctionURLResponse{}, err
 	}
 	defer file.Close()
-	content, err := ioutil.ReadAll(file)
+	indexHtml, err := ioutil.ReadAll(file)
 	if err != nil {
 		return events.LambdaFunctionURLResponse{}, err
 	}
@@ -43,7 +52,7 @@ func handler(ctx context.Context, request events.LambdaFunctionURLRequest) (even
 		// Serve the file contents as the response
 		return events.LambdaFunctionURLResponse{
 			StatusCode: http.StatusOK,
-			Body:       string(content),
+			Body:       string(indexHtml),
 			Headers: map[string]string{
 				"Content-Type": "text/html",
 			},
@@ -52,21 +61,116 @@ func handler(ctx context.Context, request events.LambdaFunctionURLRequest) (even
 
 	// Process the image to pdf prints
 	if request.RawPath == "/upload" {
+		// Load the Shared AWS Configuration (~/.aws/config)
+		cfg, err := config.LoadDefaultConfig(context.TODO())
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Create an Amazon S3 service client
+		client := s3.NewFromConfig(cfg)
+		bucket := "ee.split-images-bucket"
+		key := "split-image.pdf"
+
+		_, err = client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+		})
+
+		client.PutObject(context.TODO(), &s3.PutObjectInput{
+			Bucket: aws.String(bucket),
+			Key:    aws.String(key),
+			Body:   bytes.NewReader([]byte(request.Body)),
+		})
+
+		// log.Printf("b64: %v", request.IsBase64Encoded)
+		// Request comes in as base64 encoded string
+		reqFormBytes, err := b64.StdEncoding.DecodeString(request.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// There is a specification for multipart form data
+		// The multipart reader knows how to read the form data
+		boundary := request.Headers["content-type"]
+		// get the boundary part of the content-type only
+		// Looks like content-type:multipart/form-data; boundary=----WebKitFormBoundaryAqN7Vfq4PEj6BrnB
+		boundary = strings.Split(boundary, "boundary=")[1]
+		log.Printf("boundary: %v\n", boundary)
+		multi := multipart.NewReader(bytes.NewReader(reqFormBytes), boundary)
+
+		// Iterates through the parts of the form
+		var dpi int
+		var fileBytes []byte
+		for {
+			p, err := multi.NextPart()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				log.Fatal(err)
+			}
+			if p.FormName() == "dpi" {
+				// fmt.Printf("dpi: %+v\n", p)
+				dpiB, err := ioutil.ReadAll(p)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				dpiStr := string(dpiB)
+				log.Printf("dpiStr: %v\n", dpiStr)
+				dpi, err = strconv.Atoi(dpiStr)
+				if err != nil && dpi > 0 {
+					return events.LambdaFunctionURLResponse{
+						StatusCode:      http.StatusBadRequest,
+						Body:            "Please provide a valid dpi parameter.",
+						IsBase64Encoded: false,
+						Headers: map[string]string{
+							"Content-Type": "application/text",
+						},
+					}, nil
+				}
+			}
+
+			if p.FormName() == "file" {
+				// fmt.Printf("file: %+v", p)
+				// fmt.Printf("dpi: %+v\n", p)
+				fileBytes, err = ioutil.ReadAll(p)
+				if err != nil {
+					log.Fatal(err)
+				}
+
+			}
+		}
+
+		pdf, err := ProcessImage(fileBytes, dpi)
+		if err != nil {
+			return events.LambdaFunctionURLResponse{
+				StatusCode:      http.StatusBadRequest,
+				Body:            "Invalid image file type. Use png only.",
+				IsBase64Encoded: false,
+				Headers: map[string]string{
+					"Content-Type": "application/text",
+				},
+			}, nil
+		}
+
+		newBod := b64.StdEncoding.EncodeToString(pdf)
 
 		return events.LambdaFunctionURLResponse{
-			StatusCode: http.StatusOK,
-			Body:       request.Body,
+			StatusCode:      http.StatusOK,
+			Body:            newBod,
+			IsBase64Encoded: true,
 			Headers: map[string]string{
-				"Content-Type": "application/octet-stream",
+				"Content-Type": "application/pdf",
 			},
 		}, nil
-
 	}
 
 	// Return index.html for any other path
 	return events.LambdaFunctionURLResponse{
 		StatusCode: http.StatusOK,
-		Body:       string(content),
+		Body:       string(indexHtml),
 		Headers: map[string]string{
 			"Content-Type": "text/html",
 		},
@@ -77,39 +181,17 @@ func main() {
 	lambda.Start(handler)
 }
 
-func HandleRequest(ctx context.Context) (string, error) {
-	inputFiles, err := ioutil.ReadDir("input")
-	if err != nil {
-		return "", err
-	}
-
-	for _, file := range inputFiles {
-		log.Println(file.Name())
-		ProcessImage("input/" + file.Name())
-	}
-
-	return "Image processing complete", nil
-}
-
 func CheckErr(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func ProcessImage(sourceImagePath string) {
-	sourceFileName := filepath.Base(sourceImagePath)
-	fmt.Println("input: " + sourceFileName)
-
-	openedImage, err := os.Open(sourceImagePath)
+func ProcessImage(file []byte, dpi int) ([]byte, error) {
+	reader := bytes.NewReader(file)
+	imgData, err := png.Decode(reader)
 	if err != nil {
-		CheckErr(err)
-	}
-	defer openedImage.Close()
-
-	imgData, err := png.Decode(openedImage)
-	if err != nil {
-		CheckErr(err)
+		return nil, err
 	}
 
 	fmt.Println("Bounds: ", imgData.Bounds())
@@ -135,6 +217,7 @@ func ProcessImage(sourceImagePath string) {
 	// Set up PDF object
 	pdf := gofpdf.New("P", "in", "Letter", "")
 
+	tmpName := "temp"
 	for i := range imageParts {
 		//loop though image and copy everything into first section
 		for y := imageParts[i].Rect.Min.Y; y < imageParts[i].Rect.Max.Y; y++ {
@@ -150,12 +233,12 @@ func ProcessImage(sourceImagePath string) {
 		}
 
 		// Output Image File
-		partFileName := fmt.Sprintf("temp/%s-part-%d.png", sourceFileName, i)
+		partFileName := fmt.Sprintf("/tmp/%s-part-%d.png", tmpName, i)
 		//partFileName := fmt.Sprintf("image-part-%d.png", i)
-		err = os.MkdirAll("temp", os.ModePerm)
-		if err != nil {
-			CheckErr(err)
-		}
+		// err = os.MkdirAll("temp", os.ModePerm)
+		// if err != nil {
+		// 	CheckErr(err)
+		// }
 		outF, err := os.Create(partFileName)
 		if err != nil {
 			CheckErr(err)
@@ -168,19 +251,30 @@ func ProcessImage(sourceImagePath string) {
 		}
 
 		// Add image to pdf
-		AddImageToPdfPage(pdf, partFileName, imageParts[i].Bounds(), DPI)
+		AddImageToPdfPage(pdf, partFileName, imageParts[i].Bounds(), dpi)
 	}
 
-	err = os.MkdirAll("output", os.ModePerm)
+	err = os.MkdirAll("/tmp/output", os.ModePerm)
 	if err != nil {
 		CheckErr(err)
 	}
 	// Output pdf to a file
-	fileStr := fmt.Sprintf("output/%s.pdf", sourceFileName)
+	fileStr := fmt.Sprintf("/tmp/output/%s.pdf", tmpName)
 	err = pdf.OutputFileAndClose(fileStr)
 	if err != nil {
 		CheckErr(err)
 	}
+
+	// Read pdf file and return bytes
+
+	outFile, err := os.Open(fileStr)
+	if err != nil {
+		CheckErr(err)
+	}
+
+	outBytes, err := ioutil.ReadAll(outFile)
+	return outBytes, nil
+
 }
 
 // Adds page to pdf. Pass reference to pdf file object

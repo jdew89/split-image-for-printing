@@ -1,54 +1,18 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8">
-    <title>File Upload Example</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
-  </head>
-  <body>
-    <section class="section">
-      <div class="container">
-        <h1 class="title">File Upload Example</h1>
-        <div class="field">
-          <div class="file is-boxed">
-            <label class="file-label">
-              <input class="file-input" type="file" name="resume">
-              <span class="file-cta">
-                <span class="file-icon">
-                  <i class="fas fa-upload"></i>
-                </span>
-                <span class="file-label">
-                  Choose a file…
-                </span>
-              </span>
-            </label>
-          </div>
-        </div>
-        <div class="field">
-          <div class="control">
-            <button class="button is-primary" onclick="uploadFile()">Upload</button>
-          </div>
-        </div>
-      </div>
-    </section>
-    <script>
-      function uploadFile() {
-        const fileInput = document.querySelector('.file-input');
-        const file = fileInput.files[0];
-        if (!file) {
-          alert("Please select a file.");
-          return;
-        }
-        const xhr = new XMLHttpRequest();
-        xhr.open("POST", "/upload", true);
-        xhr.setRequestHeader("Content-Type", "application/octet-stream");
-        xhr.onreadystatechange = function() {
-          if (xhr.readyState === 4 && xhr.status === 200) {
-            alert("File uploaded successfully.");
-          }
-        };
-        xhr.send(file);
-      }
-    </script>
-  </body>
+<head>
+  <title>File Upload Example</title>
+</head>
+<body>
+  <h1>Split large pngs to pdf</h1>
+  <form action="/upload" method="post" enctype="multipart/form-data">
+    <label for="dpi">DPI of png:</label>
+    <input type="text" id="dpi" name="dpi" value="300" required>
+    <br>
+    <label for="file">Select a file:</label>
+    <input type="file" id="file" name="file" required>
+    <br>
+    <input type="submit" value="Upload">
+  </form>
+</body>
 </html>
