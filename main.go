@@ -190,10 +190,12 @@ func ProcessImage(file []byte, dpi int) ([]byte, error) {
 	edgeLineSize := 2
 
 	// Set up PDF object
+	fmt.Println("Setup pdf object")
 	pdf := gofpdf.New("P", "in", "Letter", "")
 
 	tmpName := "temp"
 	for i := range imageParts {
+		fmt.Println("image part: ", i)
 		//loop though image and copy everything into first section
 		for y := imageParts[i].Rect.Min.Y; y < imageParts[i].Rect.Max.Y; y++ {
 			for x := imageParts[i].Rect.Min.X; x < imageParts[i].Rect.Max.X; x++ {
@@ -209,6 +211,7 @@ func ProcessImage(file []byte, dpi int) ([]byte, error) {
 
 		// Output Image File
 		partFileName := fmt.Sprintf("/tmp/%s-part-%d.png", tmpName, i)
+		fmt.Println("outputting image part: ", partFileName)
 		//partFileName := fmt.Sprintf("image-part-%d.png", i)
 		// err = os.MkdirAll("temp", os.ModePerm)
 		// if err != nil {
@@ -225,6 +228,7 @@ func ProcessImage(file []byte, dpi int) ([]byte, error) {
 			CheckErr(err)
 		}
 
+		fmt.Println("Add image part to pdf..")
 		// Add image to pdf
 		AddImageToPdfPage(pdf, partFileName, imageParts[i].Bounds(), dpi)
 	}
